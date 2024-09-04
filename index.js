@@ -1,64 +1,63 @@
 import express from "express";
+import database from "./src/database/database.js"
+import "./src/database/tables/comments.js"
 
 const app = express()
 const port = 3000
-let comments = [
-    {
-      id: 1,
-      name: "Alice",
-      comment: "This is a great article!",
-      date: "2024-09-01"
-    },
-    {
-      id: 2, 
-      name: "Bob",
-      comment: "I found this information very helpful.",
-      date: "2024-09-02"
-    },
-    {
-      id: 3,
-      name: "Charlie",
-      comment: "Can you explain more about this topic?",
-      date: "2024-09-02"
-    },
-    {
-      id: 4, 
-      name: "Diana",
-      comment: "Interesting point of view!",
-      date: "2024-09-01"
-    },
-    {
-      id: 5,
-      name: "Evan",
-      comment: "I disagree with some of the points made.",
-      date: "2024-09-03"
-    },
-  ];
-let nextId = 5
   
 app.use(express.json())
 
 app.get('/', (request, response) => {
-    response.status(200).json(comments)
+    const query = "SELECT * FROM comments ORDER BY date DESC"
+    database.all(query, [], (error, rows) => {
+      if (error) {
+        return response.status(500).json("Houve um erro ao listar os comentários!", error.message)
+      }
+      return response.status(200).json(rows)
+    })
 })
 
 app.post('/', (request, response) =>{
-    const data = request.body
-    nextId++
-    data.id = nextId
-    comments.push(data)
-    response.status(201).json("Comentário cadastrado com sucesso!")
+    const { name, comment, date } = request.body
+    if (comment.length < 10 || comment.length > 145) {
+      return response.status(400).json("Comentário precisa ter pelo menos 10 caracteres e menor que 145 caracteres!")
+    }
+    const query = "INSERT INTO comments (name, comment, date) VALUES (?, ?, ?)" // ?: name, ?: comment, ?: date
+    database.run(query, [name, comment, date], (error) => {
+      if (error) {
+        return response.status(500).json("Houve um erro ao cadastrar o comentário!", error.message)
+      }
+      return response.status(201).json("Comentário cadastrado com sucesso!")
+    })
                   
 })
 
 app.delete('/:id', (request, response) =>{
     const commentId = parseInt(request.params.id)
-    comments = comments.filter(comment => comment.id != commentId) // aqui ele está filtrando os comentários que não possuem o id digitado no request.params.id, criando assim um novo array sem esse comentário
-    response.status(201).json("Deletado com sucesso!")
+    const query = "DELETE FROM comments WHERE id = ?"
+    database.run(query, [commentId], (error) => {
+      console.log(error, commentId)
+      if (error) {
+        return response.status(500).json("Houve um erro ao deletar o comentário!", error.message)
+      }
+      return response.status(201).json("Deletado com sucesso!")
+    })
 })
 
 app.put('/:id', (request, response) =>{
-    response.send("Comentário atualizado com sucesso!")
+    const commentId = parseInt(request.params.id)
+    const {name, comment, date} = request.body // destruct só funciona em objetos
+    if (comment.length < 10 || comment.length > 145) {
+      return response.status(400).json("Comentário precisa ter pelo menos 10 caracteres e menor que 145 caracteres!")
+    }
+    const query = "UPDATE comments SET name = ?, comment = ?, date = ? WHERE id = ?"
+    database.run(query, [name, comment, date, commentId], (error) => {
+      if (error) {
+        return response.status(500).json("Houve um erro ao atualizar o comentário!", error.message)
+      }
+      return response.status(201).json("Comentário atualizado com sucesso!")
+    })
+   
 })
 
 
